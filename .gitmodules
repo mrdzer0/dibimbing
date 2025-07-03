@@ -1,0 +1,3 @@
+[submodule "lab/OutdatedComponent/log4j-poc"]
+	path = lab/OutdatedComponent/log4j-poc
+	url = https://github.com/kozmer/log4j-shell-poc
