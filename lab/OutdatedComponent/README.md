@@ -5,8 +5,6 @@ Di dalam repo ini, peserta dapat mencoba hands-on berbagai teknik identifikasi d
 
 ## 📚 Daftar Lab Exercise
 
-- **dependency-check**  
-  Tool Dependency-Check CLI versi portable.
 - **CVE-2019-11358**  
   Studi kasus kerentanan jQuery pada aplikasi berbasis JavaScript.
 - **log4j-poc**  
@@ -21,13 +19,12 @@ Di dalam repo ini, peserta dapat mencoba hands-on berbagai teknik identifikasi d
 ### 1. Jalankan Dependency-Check (Linux/Mac)
 ```bash
 cd dependency-check
-./dependency-check.sh --scan <path-folder-proyek-anda> --out .
+./bin/dependency-check.sh --scan <path-folder-proyek-anda> --out .
 ```
 
 ### 2. Tips
 - Ganti `<path-folder-proyek-anda>` dengan folder yang ingin Anda scan (misal: `../log4j-poc`).
 - Hasil report biasanya berbentuk file .html di folder yang sama, dengan nama `dependency-check-report.html`.
-- Jika muncul error Could not connect to Central search, jalankan dengan opsi --disableCentral:
 ```bash
 ./dependency-check.sh --scan <path-folder-proyek-anda> --disableCentral --out .
 ```
