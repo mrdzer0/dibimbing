@@ -2,33 +2,7 @@
 
 > A practical reference for students and beginners learning Kali Linux, Linux command-line operations, and basic Apache2 log analysis.
 
-## 1. Professional Workflow
-
-Use this loop for every activity:
-
-```text
-Scope → Prepare → Run → Validate → Save Evidence → Interpret → Clean Up
-```
-
-Only work on systems that you own or have explicit permission to test. For classroom exercises, use the local Kali VM and `127.0.0.1`.
-
-Recommended evidence directory:
-
-```bash
-LAB="$HOME/apache-lab"
-mkdir -p "$LAB"/{evidence,notes}
-cd "$LAB"
-```
-
-Keep these items separate:
-
-| Directory | Purpose |
-|---|---|
-| `webroot/` | Website content used by the lab |
-| `evidence/` | Command output and log extracts |
-| `notes/` | Interpretation and follow-up actions |
-
-## 2. Terminal and Command Basics
+## 1. Terminal and Command Basics
 
 ### Check the current environment
 
@@ -90,7 +64,7 @@ Useful keyboard shortcuts:
 | `↑` / `↓` | Browse command history |
 | `q` | Exit `less` or `man` |
 
-## 3. Navigation and File Management
+## 2. Navigation and File Management
 
 ### Navigate directories
 
@@ -157,7 +131,7 @@ df -h
 | `du -sh` | Check directory size |
 | `df -h` | Check filesystem capacity |
 
-## 4. Reading, Searching, and Comparing Text
+## 3. Reading, Searching, and Comparing Text
 
 ### Read text files
 
@@ -211,7 +185,7 @@ diff -u old.conf new.conf
 cmp file-a file-b
 ```
 
-## 5. Pipes, Redirection, and Evidence
+## 4. Pipes, Redirection, and Evidence
 
 ### Pipe output into another command
 
@@ -265,7 +239,7 @@ For every evidence file, record:
 4. Interpretation.
 5. Suggested next action.
 
-## 6. Text Processing Essentials
+## 5. Text Processing Essentials
 
 ### Count and sort values
 
@@ -333,7 +307,7 @@ Example interpretation:
 
 An HTTP status code is an observation. It is not automatically a vulnerability.
 
-## 7. Permissions, Users, and Privilege
+## 6. Permissions, Users, and Privilege
 
 ### Read permission strings
 
@@ -375,7 +349,7 @@ sudo -l
 
 Use `sudo` only when administrative privileges are required. Do not use root by default.
 
-## 8. Processes, Services, and Network Checks
+## 7. Processes, Services, and Network Checks
 
 ### Process inspection
 
@@ -410,7 +384,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1
 
 Use only local or explicitly authorized targets during training.
 
-## 9. Installing and Verifying Applications
+## 8. Installing and Verifying Applications
 
 ### APT workflow
 
@@ -442,7 +416,7 @@ dpkg -S "$(command -v apache2)"
 
 Prefer Kali/Debian packages where available. Avoid using `sudo pip install` for system-wide Python changes; use `apt`, `pipx`, or a virtual environment as appropriate.
 
-## 10. Apache2 Class Exercise
+## 9. Apache2 Class Exercise
 
 ### Install and start Apache2
 
@@ -468,11 +442,176 @@ curl -I http://127.0.0.1
 |---|---|
 | `/etc/apache2/` | Apache configuration |
 | `/var/www/html/` | Default website content |
+| `/var/www/latihan.local/public_html/` | Document root for the training VirtualHost |
 | `/var/log/apache2/access.log` | HTTP request log |
 | `/var/log/apache2/error.log` | Apache errors and warnings |
+| `/var/log/apache2/latihan.local_access.log` | Access log for `latihan.local` |
+| `/var/log/apache2/latihan.local_error.log` | Error log for `latihan.local` |
 | `/usr/sbin/apache2` | Apache server binary |
+| `/etc/hosts` | Local hostname mapping used by the lab |
+| `/etc/apache2/sites-available/` | Available VirtualHost configurations |
 | `/etc/apache2/sites-enabled/` | Enabled virtual hosts |
 | `/etc/apache2/mods-enabled/` | Enabled modules |
+
+### Set up a local VirtualHost: `latihan.local`
+
+This exercise creates a local-only website. The domain does not need to be registered in DNS; `/etc/hosts` maps it to the local machine.
+
+#### 1. Map the training domain to localhost
+
+Add the entry only if it does not already exist:
+
+```bash
+if ! grep -Eq '(^|[[:space:]])latihan\.local([[:space:]]|$)' /etc/hosts; then
+  echo '127.0.0.1 latihan.local www.latihan.local' \
+    | sudo tee -a /etc/hosts
+fi
+```
+
+Verify name resolution:
+
+```bash
+getent hosts latihan.local
+getent hosts www.latihan.local
+```
+
+Expected result should contain `127.0.0.1`.
+
+#### 2. Create the document root and test page
+
+```bash
+sudo mkdir -p /var/www/latihan.local/public_html
+
+echo '<!doctype html>
+<html>
+  <head><title>Latihan Local</title></head>
+  <body><h1>latihan.local is working</h1></body>
+</html>' | sudo tee /var/www/latihan.local/public_html/index.html
+
+sudo chown -R "$USER":www-data /var/www/latihan.local
+sudo find /var/www/latihan.local -type d -exec chmod 755 {} \;
+sudo find /var/www/latihan.local -type f -exec chmod 644 {} \;
+```
+
+#### 3. Create the VirtualHost configuration
+
+```bash
+sudo tee /etc/apache2/sites-available/latihan.local.conf > /dev/null <<'EOF'
+<VirtualHost *:80>
+    ServerName latihan.local
+    ServerAlias www.latihan.local
+
+    DocumentRoot /var/www/latihan.local/public_html
+
+    <Directory /var/www/latihan.local/public_html>
+        Options Indexes FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/latihan.local_error.log
+    CustomLog ${APACHE_LOG_DIR}/latihan.local_access.log combined
+</VirtualHost>
+EOF
+```
+
+The separate access and error logs make the exercise easier to analyze than using only the global Apache logs.
+
+#### 4. Enable the site and reload Apache
+
+```bash
+sudo a2ensite latihan.local.conf
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+Expected configuration-test result:
+
+```text
+Syntax OK
+```
+
+Optionally disable the default site so that the training site is the only enabled site on port 80:
+
+```bash
+sudo a2dissite 000-default.conf
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+#### 5. Verify the VirtualHost
+
+```bash
+apache2ctl -S
+curl -i http://latihan.local/
+curl -i http://www.latihan.local/
+curl -i -H 'Host: latihan.local' http://127.0.0.1/
+```
+
+The response should contain the page text `latihan.local is working` and normally return HTTP status `200`.
+
+If hostname resolution is unavailable, the `Host` header test still verifies Apache's VirtualHost selection:
+
+```bash
+curl -i --resolve latihan.local:80:127.0.0.1 \
+  http://latihan.local/
+```
+
+#### 6. Generate requests for log analysis
+
+```bash
+curl -sS http://latihan.local/ -o /dev/null
+curl -sS http://latihan.local/does-not-exist -o /dev/null
+curl -sS http://latihan.local/robots.txt -o /dev/null
+
+sudo tail -n 20 /var/log/apache2/latihan.local_access.log
+sudo tail -n 20 /var/log/apache2/latihan.local_error.log
+```
+
+Analyze the VirtualHost-specific logs:
+
+```bash
+sudo awk '{print $9}' /var/log/apache2/latihan.local_access.log \
+  | sort | uniq -c | sort -nr \
+  | tee "$LAB/evidence/latihan-status-counts.txt"
+
+sudo awk '$9 == 404 {print $7}' \
+  /var/log/apache2/latihan.local_access.log \
+  | sort | uniq -c | sort -nr \
+  | tee "$LAB/evidence/latihan-404-paths.txt"
+
+sudo awk '{print $1}' /var/log/apache2/latihan.local_access.log \
+  | sort | uniq -c | sort -nr \
+  | tee "$LAB/evidence/latihan-client-ips.txt"
+```
+
+#### VirtualHost troubleshooting
+
+| Symptom | Checks |
+|---|---|
+| `latihan.local` cannot be resolved | Check `/etc/hosts` and run `getent hosts latihan.local` |
+| Apache shows the default page | Run `apache2ctl -S`, verify `ServerName`, and disable `000-default.conf` if needed |
+| HTTP `403 Forbidden` | Check directory/file permissions and the `<Directory>` block |
+| HTTP `404 Not Found` | Confirm `DocumentRoot` and the requested path |
+| Configuration reload fails | Run `sudo apache2ctl configtest` and inspect the reported line |
+| Separate logs are empty | Generate a request using `http://latihan.local/`, then check the log path |
+
+#### Remove the training VirtualHost
+
+When the exercise is complete, disable the site and reload Apache:
+
+```bash
+sudo a2dissite latihan.local.conf
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+If the default site was disabled for the exercise, re-enable it when needed:
+
+```bash
+sudo a2ensite 000-default.conf
+sudo systemctl reload apache2
+```
 
 ### Generate test requests
 
@@ -575,7 +714,7 @@ mkdir -p "$LAB/evidence"
 } | tee "$LAB/evidence/apache-snapshot.txt"
 ```
 
-## 11. Common Log Analysis Questions
+## 110. Common Log Analysis Questions
 
 ### How many requests returned `404`?
 
@@ -617,7 +756,7 @@ sudo grep -niE 'error|warn|crit|failed' \
 sudo wc -l /var/log/apache2/access.log /var/log/apache2/error.log
 ```
 
-## 12. Troubleshooting Quick Reference
+## 11. Troubleshooting Quick Reference
 
 | Problem | Useful checks |
 |---|---|
@@ -644,7 +783,7 @@ Expected result from `apache2ctl configtest`:
 Syntax OK
 ```
 
-## 13. Cleanup After the Lab
+## 12. Cleanup After the Lab
 
 Save evidence before stopping the service:
 
@@ -685,14 +824,4 @@ ss -ltnp | grep ':80' || true
 | Save output | `command | tee evidence.txt` |
 | Add a timestamp | `date -Is` |
 
-## 15. Final Checklist
-
-- [ ] I confirmed the target and authorization.
-- [ ] I created a separate workspace for the exercise.
-- [ ] I understood the command before running it.
-- [ ] I checked the command output instead of assuming success.
-- [ ] I used pipes and filters to reduce large logs into useful evidence.
-- [ ] I recorded timestamps and preserved raw output.
-- [ ] I separated observations from vulnerability conclusions.
-- [ ] I stopped or disabled the lab service after the exercise.
 
